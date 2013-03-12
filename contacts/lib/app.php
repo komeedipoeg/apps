@@ -34,7 +34,7 @@ class App {
 	/**
 	 * Properties to index.
 	 */
-	public static $index_properties = array('BDAY', 'UID', 'N', 'FN', 'NOTE', 'NICKNAME', 'ORG', 'CATEGORIES', 'EMAIL', 'TEL', 'IMPP', 'ADR', 'URL', 'GEO', 'PHOTO');
+	public static $index_properties = array('BDAY', 'UID', 'N', 'FN', 'TITLE', 'ROLE', 'NOTE', 'NICKNAME', 'ORG', 'CATEGORIES', 'EMAIL', 'TEL', 'IMPP', 'ADR', 'URL', 'GEO', 'PHOTO');
 
 	const THUMBNAIL_PREFIX = 'contact-thumbnail-';
 	const THUMBNAIL_SIZE = 28;
@@ -103,7 +103,7 @@ class App {
 				'twitter' => array(
 					'displayname' => (string)$l10n->t('Twitter'),
 					'xname' => 'X-TWITTER',
-					'protocol' => null,
+					'protocol' => 'twitter',
 				),
 				'googletalk' => array(
 					'displayname' => (string)$l10n->t('GoogleTalk'),
