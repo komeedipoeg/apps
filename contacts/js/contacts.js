@@ -348,14 +348,11 @@ OC.Contacts = OC.Contacts || {};
 								self.data.N[0]['value'][1] = nvalue[0] || '';
 								self.data.N[0]['value'][2] = nvalue.length > 2 && nvalue.slice(1, nvalue.length-1).join(' ') || '';
 								setTimeout(function() {
-									// TODO: Hint to user to check if name is properly formatted
-									//console.log('auto creating N', self.data.N[0].value)
 									self.saveProperty({name:'N', value:self.data.N[0].value.join(';')});
 									setTimeout(function() {
 										self.$fullelem.find('.fullname').next('.action.edit').trigger('click');
 										OC.notify({message:t('contacts', 'Is this correct?')});
-									}
-									, 1000);
+									}, 1000);
 								}
 								, 500);
 							}
@@ -368,6 +365,25 @@ OC.Contacts = OC.Contacts || {};
 								$.each(value, function(idx, val) {
 									self.$fullelem.find('#n_' + idx).val(val);
 								});
+							}
+							var $fullname = self.$fullelem.find('.fullname'), fullname = '';
+							var update_fn = false;
+							if(!self.data.FN) {
+								self.data.FN = [{name:'N', value:'', parameters:[]}];
+							}
+							if(self.data.FN[0]['value'] === '') {
+								self.data.FN[0]['value'] = value[1] + ' ' + value[0];
+								$fullname.val(self.data.FN[0]['value']);
+								update_fn = true;
+							} else if($fullname.val()[0] === ' ') {
+								self.data.FN[0]['value'] = value[1] + ' ' + value[0];
+								$fullname.val(self.data.FN[0]['value']);
+								update_fn = true;
+							}
+							if(update_fn) {
+								setTimeout(function() {
+									self.saveProperty({name:'FN', value:self.data.FN[0]['value']});
+								}, 1000);
 							}
 						case 'NICKNAME':
 						case 'BDAY':
@@ -602,7 +618,7 @@ OC.Contacts = OC.Contacts || {};
 				} else if($elem.length > 1) {
 					var retval = [];
 					$.each($elem, function(idx, e) {
-						retval.push($(e).val());
+						retval[parseInt($(e).attr('name').substr(6,1))] = $(e).val();
 					});
 					return retval;
 				}
@@ -1307,7 +1323,7 @@ OC.Contacts = OC.Contacts || {};
 	};
 
 	Contact.prototype.next = function() {
-		var $next = this.$listelem.next('tr');
+		var $next = this.$listelem.next('tr:visible');
 		if($next.length > 0) {
 			this.$listelem.removeClass('active');
 			$next.addClass('active');
@@ -1320,7 +1336,7 @@ OC.Contacts = OC.Contacts || {};
 	};
 
 	Contact.prototype.prev = function() {
-		var $prev = this.$listelem.prev('tr');
+		var $prev = this.$listelem.prev('tr:visible');
 		if($prev.length > 0) {
 			this.$listelem.removeClass('active');
 			$prev.addClass('active');
@@ -1643,6 +1659,7 @@ OC.Contacts = OC.Contacts || {};
 	};
 
 	ContactList.prototype.setCurrent = function(id, deselect_other) {
+		console.log('ContactList.setCurrent', id);
 		if(!id) {
 			return;
 		}
@@ -1749,6 +1766,7 @@ OC.Contacts = OC.Contacts || {};
 				}
 				setTimeout(function() {
 					self.doSort();
+					self.setCurrent(self.$contactList.find('tr:visible:first-child').data('id'), false);
 				}
 				, 2000);
 				$(document).trigger('status.contacts.loaded', {
@@ -1756,7 +1774,6 @@ OC.Contacts = OC.Contacts || {};
 					numcontacts: jsondata.data.contacts.length,
 					is_indexed: jsondata.data.is_indexed
 				});
-				self.setCurrent(self.$contactList.find('tr:first-child').data('id'), false);
 			}
 			if(typeof cb === 'function') {
 				cb();
