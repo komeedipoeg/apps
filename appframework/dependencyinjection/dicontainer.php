@@ -58,7 +58,8 @@ class DIContainer extends \Pimple {
 		});
 
 		$this['Request'] = $this->share(function($c){
-			return new Request($_GET, $_POST, $_FILES);
+			return new Request($_GET, $_POST, $_FILES,
+				$_SERVER, $_ENV, $_SESSION, $_COOKIE, $c['urlParams']);
 		});
 
 

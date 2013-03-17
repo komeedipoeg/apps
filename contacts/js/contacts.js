@@ -13,16 +13,16 @@ OC.Contacts = OC.Contacts || {};
 	* @param fulltemplate the jquery object used to render the entire contact
 	* @param detailtemplates A map of jquery objects used to render the contact parts e.g. EMAIL, TEL etc.
 	*/
-	var Contact = function(parent, id, access, data, listtemplate, fulltemplate, detailtemplates) {
+	var Contact = function(parent, id, access, data, listtemplate, dragtemplate, fulltemplate, detailtemplates) {
 		//console.log('contact:', id, access); //parent, id, data, listtemplate, fulltemplate);
 		this.parent = parent,
 			this.id = id,
 			this.access = access,
 			this.data = data,
+			this.$dragTemplate = dragtemplate,
 			this.$listTemplate = listtemplate,
 			this.$fullTemplate = fulltemplate;
 			this.detailTemplates = detailtemplates;
-
 		this.undoQueue = [];
 		this.multi_properties = ['EMAIL', 'TEL', 'IMPP', 'ADR', 'URL'];
 	};
@@ -375,7 +375,12 @@ OC.Contacts = OC.Contacts || {};
 								self.data.FN[0]['value'] = value[1] + ' ' + value[0];
 								$fullname.val(self.data.FN[0]['value']);
 								update_fn = true;
-							} else if($fullname.val()[0] === ' ') {
+							} else if($fullname.val() == value[1] + ' ') {
+								console.log('change', value);
+								self.data.FN[0]['value'] = value[1] + ' ' + value[0];
+								$fullname.val(self.data.FN[0]['value']);
+								update_fn = true;
+							} else if($fullname.val() == ' ' + value[0]) {
 								self.data.FN[0]['value'] = value[1] + ' ' + value[0];
 								$fullname.val(self.data.FN[0]['value']);
 								update_fn = true;
@@ -654,16 +659,30 @@ OC.Contacts = OC.Contacts || {};
 	};
 
 	/**
+	 * Render an element item to be shown during drag.
+	 * @return A jquery object
+	 */
+	Contact.prototype.renderDragItem = function() {
+		if(typeof this.$dragelem === 'undefined') {
+			this.$dragelem = this.$dragTemplate.octemplate({
+				id: this.id,
+				name: this.getPreferredValue('FN', '')
+			});
+		}
+		return this.$dragelem;
+	}
+
+	/**
 	 * Render the list item
 	 * @return A jquery object to be inserted in the DOM
 	 */
-	Contact.prototype.renderListItem = function() {
+	Contact.prototype.renderListItem = function(isnew) {
 		this.$listelem = this.$listTemplate.octemplate({
 			id: this.id,
-			name: this.getPreferredValue('FN', ''),
-			email: this.getPreferredValue('EMAIL', ''),
-			tel: this.getPreferredValue('TEL', ''),
-			adr: this.getPreferredValue('ADR', []).clean('').join(', '),
+			name: isnew ? escapeHTML(this.getPreferredValue('FN', '')) : this.getPreferredValue('FN', ''),
+			email: isnew ? escapeHTML(this.getPreferredValue('EMAIL', '')) : this.getPreferredValue('EMAIL', ''),
+			tel: isnew ? escapeHTML(this.getPreferredValue('TEL', '')) : this.getPreferredValue('TEL', ''),
+			adr: isnew ? escapeHTML(this.getPreferredValue('ADR', []).clean('').join(', ')) : this.getPreferredValue('ADR', []).clean('').join(', '),
 			categories: this.getPreferredValue('CATEGORIES', [])
 				.clean('').join(' / ')
 		});
@@ -1348,13 +1367,20 @@ OC.Contacts = OC.Contacts || {};
 		}
 	};
 
-	var ContactList = function(contactlist, contactlistitemtemplate, contactfulltemplate, contactdetailtemplates) {
+	var ContactList = function(
+			contactlist,
+			contactlistitemtemplate,
+			contactdragitemtemplate,
+			contactfulltemplate,
+			contactdetailtemplates
+		) {
 		//console.log('ContactList', contactlist, contactlistitemtemplate, contactfulltemplate, contactdetailtemplates);
 		var self = this;
 		this.length = 0;
 		this.contacts = {};
 		this.deletionQueue = [];
 		this.$contactList = contactlist;
+		this.$contactDragItemTemplate = contactdragitemtemplate;
 		this.$contactListItemTemplate = contactlistitemtemplate;
 		this.$contactFullTemplate = contactfulltemplate;
 		this.contactDetailTemplates = contactdetailtemplates;
@@ -1363,13 +1389,13 @@ OC.Contacts = OC.Contacts || {};
 		$(document).bind('status.contact.added', function(e, data) {
 			self.length += 1;
 			self.contacts[parseInt(data.id)] = data.contact;
-			self.insertContact(data.contact.renderListItem());
+			self.insertContact(data.contact.renderListItem(true));
 		});
 
 		$(document).bind('status.contact.updated', function(e, data) {
 			if(['FN', 'EMAIL', 'TEL', 'ADR', 'CATEGORIES'].indexOf(data.property) !== -1) {
 				data.contact.getListItemElement().remove();
-				self.insertContact(self.contacts[parseInt(data.contact.id)].renderListItem());
+				self.insertContact(self.contacts[parseInt(data.contact.id)].renderListItem(true));
 			}
 		});
 	};
@@ -1604,8 +1630,11 @@ OC.Contacts = OC.Contacts || {};
 			distance: 10,
 			revert: 'invalid',
 			//containment: '#content',
-			opacity: 0.8, helper: 'clone',
-			zIndex: 1000
+			helper: function (e,ui) {
+				return $(this).clone().appendTo('body').css('zIndex', 5).show();
+			},
+			opacity: 0.8,
+			scope: 'contacts'
 		});
 		var name = $contact.find('.nametext').text().toLowerCase();
 		var added = false;
@@ -1634,6 +1663,7 @@ OC.Contacts = OC.Contacts || {};
 			{owner:OC.currentUser, permissions: 31},
 			null,
 			this.$contactListItemTemplate,
+			this.$contactDragItemTemplate,
 			this.$contactFullTemplate,
 			this.contactDetailTemplates
 		);
@@ -1743,6 +1773,7 @@ OC.Contacts = OC.Contacts || {};
 							self.addressbooks[parseInt(contact.aid)],
 							contact.data,
 							self.$contactListItemTemplate,
+							self.$contactDragItemTemplate,
 							self.$contactFullTemplate,
 							self.contactDetailTemplates
 						);
@@ -1750,11 +1781,14 @@ OC.Contacts = OC.Contacts || {};
 					var $item = self.contacts[parseInt(contact.id)].renderListItem();
 					items.push($item.get(0));
 					$item.find('td.name').draggable({
+						cursor: 'move',
 						distance: 10,
 						revert: 'invalid',
-						//containment: '#content',
-						opacity: 0.8, helper: 'clone',
-						zIndex: 1000
+						helper: function (e,ui) {
+							return self.contacts[parseInt(contact.id)].renderDragItem().appendTo('body');
+						},
+						opacity: 1,
+						scope: 'contacts'
 					});
 					if(items.length === 100) {
 						self.$contactList.append(items);
